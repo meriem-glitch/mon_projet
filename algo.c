@@ -12,36 +12,94 @@ typedef struct {
     Node *tail;
 } LinkedList;
 
-// Fonction de tri à bulles
-void bubble_sort(LinkedList *list) {
-    if (list->head == NULL || list->head->next == NULL) {
-        // La liste est déjà triée ou vide
-        return;
+// Function prototypes
+void add_element(LinkedList *list, int value);
+gboolean draw_callback(GtkWidget *widget, cairo_t *cr, gpointer user_data);
+void draw_arrow(cairo_t *cr, double x1, double y1, double x2, double y2);
+void insert_element(LinkedList *list, int value);
+void delete_element(LinkedList *list, int value);
+void on_button_clicked(GtkWidget *widget, gpointer user_data);
+void on_insert_button_clicked(GtkWidget *widget, gpointer user_data);
+void on_insert_after_display_button_clicked(GtkWidget *widget, gpointer user_data);
+void on_delete_button_clicked(GtkWidget *widget, gpointer user_data);
+void on_search_button_clicked(GtkWidget *widget, gpointer user_data);
+void search_value_in_list(LinkedList *list, int value);
+// Déclarations supplémentaires
+gboolean on_draw_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data);
+gboolean on_draw_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer user_data);
+gboolean on_draw_button_release(GtkWidget *widget, GdkEventButton *event, gpointer user_data);
+
+// Ajoutez une variable globale pour stocker l'état du déplacement
+gboolean is_dragging = FALSE;
+Node *selected_node = NULL;
+
+// Global linked list
+LinkedList my_list = {NULL, NULL};
+
+int main(int argc, char *argv[]) {
+    gtk_init(&argc, &argv);
+
+    GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    gtk_window_set_title(GTK_WINDOW(window), "Doubly Linked List GTK");
+    gtk_window_set_default_size(GTK_WINDOW(window), 800, 150);
+
+    GtkWidget *label_elements = gtk_label_new("Enter elements separated by space:");
+    GtkWidget *entry_elements = gtk_entry_new();
+
+    GtkWidget *button_show = gtk_button_new_with_label("Show Doubly Linked List");
+    GtkWidget *button_insert = gtk_button_new_with_label("Insert Element");
+    GtkWidget *button_insert_after_display = gtk_button_new_with_label("Insert After Display");
+    GtkWidget *button_delete = gtk_button_new_with_label("Delete");
+    GtkWidget *button_search = gtk_button_new_with_label("Search Value");
+
+    g_signal_connect(button_show, "clicked", G_CALLBACK(on_button_clicked), entry_elements);
+    g_signal_connect(button_insert, "clicked", G_CALLBACK(on_insert_button_clicked), window);
+    g_signal_connect(button_insert_after_display, "clicked", G_CALLBACK(on_insert_after_display_button_clicked), window);
+    g_signal_connect(button_delete, "clicked", G_CALLBACK(on_delete_button_clicked), window);
+    g_signal_connect(button_search, "clicked", G_CALLBACK(on_search_button_clicked), window);
+
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
+    gtk_container_add(GTK_CONTAINER(box), label_elements);
+    gtk_container_add(GTK_CONTAINER(box), entry_elements);
+    gtk_container_add(GTK_CONTAINER(box), button_show);
+    gtk_container_add(GTK_CONTAINER(box), button_insert);
+    gtk_container_add(GTK_CONTAINER(box), button_insert_after_display);
+    gtk_container_add(GTK_CONTAINER(box), button_delete);
+    gtk_container_add(GTK_CONTAINER(box), button_search);
+    g_signal_connect(window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
+
+    gtk_container_add(GTK_CONTAINER(window), box);
+
+    gtk_widget_show_all(window);
+
+    gtk_main();
+
+    // Free allocated memory before exiting
+    Node *current = my_list.head;
+    while (current != NULL) {
+        Node *temp = current;
+        current = current->next;
+        g_free(temp);
     }
 
-    int swapped;
-    Node *ptr1;
-    Node *lptr = NULL;
-
-    do {
-        swapped = 0;
-        ptr1 = list->head;
-
-        while (ptr1->next != lptr) {
-            if (ptr1->value > ptr1->next->value) {
-                // Échange des éléments
-                int temp = ptr1->value;
-                ptr1->value = ptr1->next->value;
-                ptr1->next->value = temp;
-                swapped = 1;
-            }
-            ptr1 = ptr1->next;
-        }
-        lptr = ptr1;
-    } while (swapped);
+    return 0;
 }
 
-// Fonction de dessin
+void add_element(LinkedList *list, int value) {
+    Node *new_node = g_new(Node, 1);
+    new_node->value = value;
+    new_node->next = NULL;
+    new_node->prev = NULL;
+
+    if (list->head == NULL) {
+        list->head = list->tail = new_node;
+    } else {
+        list->tail->next = new_node;
+        new_node->prev = list->tail;
+        list->tail = new_node;
+    }
+}
+
 gboolean draw_callback(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
     LinkedList *list = (LinkedList *)user_data;
 
@@ -79,7 +137,6 @@ gboolean draw_callback(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
     return FALSE;
 }
 
-// Fonction d'affichage de la flèche
 void draw_arrow(cairo_t *cr, double x1, double y1, double x2, double y2) {
     cairo_save(cr);
 
@@ -99,7 +156,6 @@ void draw_arrow(cairo_t *cr, double x1, double y1, double x2, double y2) {
     cairo_restore(cr);
 }
 
-// Fonction d'insertion d'élément dans la liste
 void insert_element(LinkedList *list, int value) {
     Node *new_node = g_new(Node, 1);
     new_node->value = value;
@@ -129,14 +185,13 @@ void insert_element(LinkedList *list, int value) {
 
         current->prev = new_node;
     } else {
-        // Si la valeur est plus grande que toutes les valeurs existantes, ajoutez-la à la fin
+        // If the value is greater than all existing values, add it to the end
         new_node->prev = list->tail;
         list->tail->next = new_node;
         list->tail = new_node;
     }
 }
 
-// Fonction de suppression d'élément de la liste
 void delete_element(LinkedList *list, int value) {
     if (list->head == NULL) {
         return; // Liste vide, ne rien faire
@@ -165,21 +220,19 @@ void delete_element(LinkedList *list, int value) {
     }
 }
 
-// Fonction de recherche de valeur dans la liste
 void search_value_in_list(LinkedList *list, int value) {
     Node *current = list->head;
     while (current != NULL) {
         if (current->value == value) {
-            g_print("La valeur %d a été trouvée dans la liste.\n", value);
+            g_print("Value %d found in the list.\n", value);
             return;
         }
         current = current->next;
     }
 
-    g_print("La valeur %d n'a pas été trouvée dans la liste.\n", value);
+    g_print("Value %d not found in the list.\n", value);
 }
 
-// Fonction de gestion du clic sur le bouton
 void on_button_clicked(GtkWidget *widget, gpointer user_data) {
     GtkEntry *entry_elements = GTK_ENTRY(user_data);
     const gchar *elements_text = gtk_entry_get_text(entry_elements);
@@ -189,9 +242,6 @@ void on_button_clicked(GtkWidget *widget, gpointer user_data) {
         int value = atoi(elements[i]);
         insert_element(&my_list, value);
     }
-
-    // Appeler la fonction de tri à bulles après l'insertion des éléments
-    bubble_sort(&my_list);
 
     GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(window), "Doubly Linked List GTK");
@@ -224,51 +274,141 @@ void on_button_clicked(GtkWidget *widget, gpointer user_data) {
     gtk_widget_show_all(window);
 }
 
-int main(int argc, char *argv[]) {
-    gtk_init(&argc, &argv);
+void on_insert_button_clicked(GtkWidget *widget, gpointer user_data) {
+    GtkWidget *dialog;
+    GtkWidget *content_area;
+    GtkWidget *entry_value;
+    gint result;
 
-    GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-    gtk_window_set_title(GTK_WINDOW(window), "Doubly Linked List GTK");
-    gtk_window_set_default_size(GTK_WINDOW(window), 800, 150);
+    dialog = gtk_dialog_new_with_buttons("Insert Element",
+                                         GTK_WINDOW(user_data),
+                                         GTK_DIALOG_MODAL,
+                                         "Insert",
+                                         GTK_RESPONSE_ACCEPT,
+                                         "Cancel",
+                                         GTK_RESPONSE_CANCEL,
+                                         NULL);
 
-    GtkWidget *label_elements = gtk_label_new("Entrez les éléments séparés par un espace :");
-    GtkWidget *entry_elements = gtk_entry_new();
+    content_area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
 
-    GtkWidget *button_show = gtk_button_new_with_label("Afficher la liste doublement chaînée");
-    GtkWidget *button_insert = gtk_button_new_with_label("Insérer un élément");
-    GtkWidget *button_insert_after_display = gtk_button_new_with_label("Insérer après l'affichage");
-    GtkWidget *button_delete = gtk_button_new_with_label("Supprimer");
-    GtkWidget *button_search = gtk_button_new_with_label("Rechercher une valeur");
+    entry_value = gtk_entry_new();
+    gtk_entry_set_placeholder_text(GTK_ENTRY(entry_value), "Value to insert");
+    gtk_container_add(GTK_CONTAINER(content_area), entry_value);
 
-    g_signal_connect(button_show, "clicked", G_CALLBACK(on_button_clicked), entry_elements);
-    g_signal_connect(button_insert, "clicked", G_CALLBACK(on_insert_button_clicked), window);
-    g_signal_connect(button_insert_after_display, "clicked", G_CALLBACK(on_insert_after_display_button_clicked), window);
-    g_signal_connect(button_delete, "clicked", G_CALLBACK(on_delete_button_clicked), window);
-    g_signal_connect(button_search, "clicked", G_CALLBACK(on_search_button_clicked), window);
+    gtk_widget_show_all(dialog);
 
-    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
-    gtk_container_add(GTK_CONTAINER(box), label_elements);
-    gtk_container_add(GTK_CONTAINER(box), entry_elements);
-    gtk_container_add(GTK_CONTAINER(box), button_show);
-    gtk_container_add(GTK_CONTAINER(box), button_insert);
-    gtk_container_add(GTK_CONTAINER(box), button_insert_after_display);
-    gtk_container_add(GTK_CONTAINER(box), button_delete);
-    gtk_container_add(GTK_CONTAINER(box), button_search);
-    g_signal_connect(window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
+    result = gtk_dialog_run(GTK_DIALOG(dialog));
 
-    gtk_container_add(GTK_CONTAINER(window), box);
-
-    gtk_widget_show_all(window);
-
-    gtk_main();
-
-    // Libérer la mémoire allouée avant de quitter
-    Node *current = my_list.head;
-    while (current != NULL) {
-        Node *temp = current;
-        current = current->next;
-        g_free(temp);
+    if (result == GTK_RESPONSE_ACCEPT) {
+        const gchar *value_text = gtk_entry_get_text(GTK_ENTRY(entry_value));
+        int value = atoi(value_text);
+        insert_element(&my_list, value);
+        gtk_widget_queue_draw(GTK_WIDGET(user_data));
     }
 
-    return 0;
+    gtk_widget_destroy(dialog);
+}
+
+void on_insert_after_display_button_clicked(GtkWidget *widget, gpointer user_data) {
+    GtkWidget *dialog;
+    GtkWidget *content_area;
+    GtkWidget *entry_value;
+    gint result;
+
+    dialog = gtk_dialog_new_with_buttons("Insert After Display",
+                                         GTK_WINDOW(user_data),
+                                         GTK_DIALOG_MODAL,
+                                         "Insert",
+                                         GTK_RESPONSE_ACCEPT,
+                                         "Cancel",
+                                         GTK_RESPONSE_CANCEL,
+                                         NULL);
+
+    content_area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+
+    entry_value = gtk_entry_new();
+    gtk_entry_set_placeholder_text(GTK_ENTRY(entry_value), "Value to insert");
+    gtk_container_add(GTK_CONTAINER(content_area), entry_value);
+
+    gtk_widget_show_all(dialog);
+
+    result = gtk_dialog_run(GTK_DIALOG(dialog));
+
+    if (result == GTK_RESPONSE_ACCEPT) {
+        const gchar *value_text = gtk_entry_get_text(GTK_ENTRY(entry_value));
+        int value = atoi(value_text);
+        insert_element(&my_list, value);
+        gtk_widget_queue_draw(GTK_WIDGET(user_data));
+    }
+
+    gtk_widget_destroy(dialog);
+}
+
+void on_delete_button_clicked(GtkWidget *widget, gpointer user_data) {
+    GtkWidget *dialog;
+    GtkWidget *content_area;
+    GtkWidget *entry_value;
+    gint result;
+
+    dialog = gtk_dialog_new_with_buttons("Delete Element",
+                                         GTK_WINDOW(user_data),
+                                         GTK_DIALOG_MODAL,
+                                         "Delete",
+                                         GTK_RESPONSE_ACCEPT,
+                                         "Cancel",
+                                         GTK_RESPONSE_CANCEL,
+                                         NULL);
+
+    content_area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+
+    entry_value = gtk_entry_new();
+    gtk_entry_set_placeholder_text(GTK_ENTRY(entry_value), "Value to delete");
+    gtk_container_add(GTK_CONTAINER(content_area), entry_value);
+
+    gtk_widget_show_all(dialog);
+
+    result = gtk_dialog_run(GTK_DIALOG(dialog));
+
+    if (result == GTK_RESPONSE_ACCEPT) {
+        const gchar *value_text = gtk_entry_get_text(GTK_ENTRY(entry_value));
+        int value = atoi(value_text);
+        delete_element(&my_list, value);
+        gtk_widget_queue_draw(GTK_WIDGET(user_data));
+    }
+
+    gtk_widget_destroy(dialog);
+}
+
+void on_search_button_clicked(GtkWidget *widget, gpointer user_data) {
+    GtkWidget *dialog;
+    GtkWidget *content_area;
+    GtkWidget *entry_value;
+    gint result;
+
+    dialog = gtk_dialog_new_with_buttons("Search Value",
+                                         GTK_WINDOW(user_data),
+                                         GTK_DIALOG_MODAL,
+                                         "Search",
+                                         GTK_RESPONSE_ACCEPT,
+                                         "Cancel",
+                                         GTK_RESPONSE_CANCEL,
+                                         NULL);
+
+    content_area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+
+    entry_value = gtk_entry_new();
+    gtk_entry_set_placeholder_text(GTK_ENTRY(entry_value), "Value to search");
+    gtk_container_add(GTK_CONTAINER(content_area), entry_value);
+
+    gtk_widget_show_all(dialog);
+
+    result = gtk_dialog_run(GTK_DIALOG(dialog));
+
+    if (result == GTK_RESPONSE_ACCEPT) {
+        const gchar *value_text = gtk_entry_get_text(GTK_ENTRY(entry_value));
+        int value = atoi(value_text);
+        search_value_in_list(&my_list, value);
+    }
+
+    gtk_widget_destroy(dialog);
 }
