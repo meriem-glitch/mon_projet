@@ -378,6 +378,71 @@ void bubble_sort(LinkedList *list) {
         lptr = ptr1;
     } while (swapped);
 }
+void modify_node_value(LinkedList *list, int old_value, int new_value) {
+    Node *current = list->head;
+    while (current != NULL) {
+        if (current->value == old_value) {
+            current->value = new_value;
+            return;
+        }
+        current = current->next;
+    }
+}
+void on_modify_button_clicked(GtkWidget *widget, gpointer user_data) {
+    GtkWidget *dialog;
+    GtkWidget *content_area;
+    GtkWidget *entry_old_value;
+    GtkWidget *entry_new_value;
+    gint result;
+
+    dialog = gtk_dialog_new_with_buttons("Modify Node Value",
+                                         GTK_WINDOW(user_data),
+                                         GTK_DIALOG_MODAL,
+                                         "Modify",
+                                         GTK_RESPONSE_ACCEPT,
+                                         "Cancel",
+                                         GTK_RESPONSE_CANCEL,
+                                         NULL);
+
+    content_area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+
+    entry_old_value = gtk_entry_new();
+    gtk_entry_set_placeholder_text(GTK_ENTRY(entry_old_value), "Old Value");
+    gtk_container_add(GTK_CONTAINER(content_area), entry_old_value);
+
+    entry_new_value = gtk_entry_new();
+    gtk_entry_set_placeholder_text(GTK_ENTRY(entry_new_value), "New Value");
+    gtk_container_add(GTK_CONTAINER(content_area), entry_new_value);
+
+    gtk_widget_show_all(dialog);
+
+    result = gtk_dialog_run(GTK_DIALOG(dialog));
+
+    if (result == GTK_RESPONSE_ACCEPT) {
+        const gchar *old_value_text = gtk_entry_get_text(GTK_ENTRY(entry_old_value));
+        const gchar *new_value_text = gtk_entry_get_text(GTK_ENTRY(entry_new_value));
+        int old_value = atoi(old_value_text);
+        int new_value = atoi(new_value_text);
+
+        modify_node_value(&my_list, old_value, new_value);
+        gtk_widget_queue_draw(GTK_WIDGET(user_data));
+    }
+
+    gtk_widget_destroy(dialog);
+}
+void on_clear_button_clicked(GtkWidget *widget, gpointer user_data) {
+    // Clear the entire linked list
+    Node *current = my_list.head;
+    while (current != NULL) {
+        Node *temp = current;
+        current = current->next;
+        g_free(temp);
+    }
+
+    my_list.head = my_list.tail = NULL;
+
+    gtk_widget_queue_draw(GTK_WIDGET(user_data));
+}
 
 int main(int argc, char *argv[]) {
     gtk_init(&argc, &argv);
@@ -399,12 +464,17 @@ int main(int argc, char *argv[]) {
     GtkWidget *button_insert = gtk_button_new_with_label("Insert Element");
     GtkWidget *button_delete = gtk_button_new_with_label("Delete");
     GtkWidget *button_search = gtk_button_new_with_label("Search Value");
+    GtkWidget *button_modify = gtk_button_new_with_label("Modify");
+    GtkWidget *button_clear_all = gtk_button_new_with_label("Effacer tout");
 
     // Connexions des signaux pour les boutons
     g_signal_connect(button_show, "clicked", G_CALLBACK(on_button_clicked), entry_elements);
     g_signal_connect(button_insert, "clicked", G_CALLBACK(on_insert_button_clicked), NULL);
     g_signal_connect(button_delete, "clicked", G_CALLBACK(on_delete_button_clicked), NULL);
     g_signal_connect(button_search, "clicked", G_CALLBACK(on_search_button_clicked), NULL);
+    g_signal_connect(button_modify, "clicked", G_CALLBACK(on_modify_button_clicked), window); 
+    g_signal_connect(button_clear_all, "clicked", G_CALLBACK(on_clear_button_clicked), drawing_area);
+
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
     gtk_container_add(GTK_CONTAINER(box), label_elements);
@@ -416,6 +486,8 @@ int main(int argc, char *argv[]) {
     gtk_container_add(GTK_CONTAINER(box), button_search);
 
     gtk_container_add(GTK_CONTAINER(window), box);
+    gtk_container_add(GTK_CONTAINER(box), button_modify);
+    gtk_container_add(GTK_CONTAINER(box), button_clear_all);
 
     // Connexion des signaux pour les événements de dessin
     g_signal_connect(window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
