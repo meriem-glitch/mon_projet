@@ -17,11 +17,12 @@ typedef struct {
 void add_element(LinkedList *list, int value);
 void draw_arrow(cairo_t *cr, double x1, double y1, double x2, double y2);
 void insert_element(LinkedList *list, int value);
-void delete_element(LinkedList *list, int value);
+gboolean delete_element(LinkedList *list, int value);
 void on_insert_button_clicked(GtkWidget *widget, gpointer user_data);
 void on_delete_button_clicked(GtkWidget *widget, gpointer user_data);
 void on_search_button_clicked(GtkWidget *widget, gpointer user_data);
-void search_value_in_list(LinkedList *list, int value);
+void search_value_in_list(LinkedList *list, int value, GtkWidget *window);
+
 void bubble_sort(LinkedList *list);
 gboolean draw_callback(GtkWidget *widget, cairo_t *cr, gpointer user_data);
 gboolean on_draw_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data);
@@ -55,7 +56,7 @@ void add_element(LinkedList *list, int value) {
 }
 
 gboolean draw_callback(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
-    LinkedList *list = (LinkedList *)user_data;
+   LinkedList *list = (LinkedList *)user_data;
     double x = 50.0, y = 50.0;
     double rectangle_width = 80.0;
     double rectangle_height = 40.0;
@@ -63,7 +64,7 @@ gboolean draw_callback(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
 
     Node *current = list->head;
     while (current != NULL) {
-        cairo_rectangle(cr, x, y, rectangle_width, rectangle_height);
+       cairo_rectangle(cr, x, y, rectangle_width, rectangle_height);
         cairo_stroke_preserve(cr);
         cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
         cairo_fill(cr);
@@ -84,9 +85,7 @@ gboolean draw_callback(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
 
         x += rectangle_width + horizontal_spacing;
 
-        current = current->next;
-    }
-
+        current = current->next; }   
     return FALSE;
 }
 void draw_arrow(cairo_t *cr, double x1, double y1, double x2, double y2) {
@@ -144,9 +143,10 @@ void insert_element(LinkedList *list, int value) {
     }
 }
 
-void delete_element(LinkedList *list, int value) {
+gboolean delete_element(LinkedList *list, int value) {
     if (list->head == NULL) {
-        return; // Liste vide, ne rien faire
+         return FALSE; // Liste vide, ne rien faire
+        
     }
 
     Node *current = list->head;
@@ -167,22 +167,42 @@ void delete_element(LinkedList *list, int value) {
         } else {
             list->tail = current->prev;
         }
+          g_free(current);
 
-        g_free(current);
+        return TRUE; // Suppression réussie
+    } else {
+        return FALSE; // Suppression échouée (valeur non trouvée)
     }
 }
 
-void search_value_in_list(LinkedList *list, int value) {
+void search_value_in_list(LinkedList *list, int value,GtkWidget *window) {
     Node *current = list->head;
+     gboolean valueFound = FALSE;
     while (current != NULL) {
         if (current->value == value) {
-            g_print("Value %d found in the list.\n", value);
-            return;
-        }
+             valueFound = TRUE;
+              break; }
         current = current->next;
+    } GtkWidget *dialog;
+    const gchar *message;
+
+    if (valueFound) {
+        message = g_strdup_printf("Value %d found in the list.", value);
+    } else {
+        message = g_strdup_printf("Value %d not found in the list.", value);
     }
 
-    g_print("Value %d not found in the list.\n", value);
+    dialog = gtk_message_dialog_new(GTK_WINDOW(window),
+                                    GTK_DIALOG_MODAL,
+                                    GTK_MESSAGE_INFO,
+                                    GTK_BUTTONS_OK,
+                                    "%s",
+                                    message);
+
+    gtk_dialog_run(GTK_DIALOG(dialog));
+    gtk_widget_destroy(dialog);
+
+    g_free((gpointer)message);
 }
     void on_button_clicked(GtkWidget *widget, gpointer user_data) {
         GtkEntry *entry_elements = GTK_ENTRY(user_data);
@@ -260,7 +280,22 @@ void on_delete_button_clicked(GtkWidget *widget, gpointer user_data) {
     if (result == GTK_RESPONSE_ACCEPT) {
         const gchar *value_text = gtk_entry_get_text(GTK_ENTRY(entry_value));
         int value = atoi(value_text);
-        delete_element(&my_list, value);
+      gboolean deletion_result = delete_element(&my_list, value);
+        if (deletion_result) {
+            g_print("Value %d deleted from the list.\n", value);
+        } else {
+            g_print("Deletion failed: Value %d not found in the list.\n", value);
+            // Affichez un message dans une boîte de dialogue
+            GtkWidget *error_dialog = gtk_message_dialog_new(GTK_WINDOW(user_data),
+                                                             GTK_DIALOG_MODAL,
+                                                             GTK_MESSAGE_ERROR,
+                                                             GTK_BUTTONS_OK,
+                                                             "Deletion failed: Value %d not found in the list.",
+                                                             value);
+            gtk_dialog_run(GTK_DIALOG(error_dialog));
+            gtk_widget_destroy(error_dialog);
+        }
+
         gtk_widget_queue_draw(GTK_WIDGET(user_data));
     }
 
@@ -294,7 +329,8 @@ void on_search_button_clicked(GtkWidget *widget, gpointer user_data) {
     if (result == GTK_RESPONSE_ACCEPT) {
         const gchar *value_text = gtk_entry_get_text(GTK_ENTRY(entry_value));
         int value = atoi(value_text);
-        search_value_in_list(&my_list, value);
+      search_value_in_list(&my_list, value, GTK_WIDGET(user_data));
+
     }
 
     gtk_widget_destroy(dialog);
@@ -465,7 +501,7 @@ int main(int argc, char *argv[]) {
     GtkWidget *button_delete = gtk_button_new_with_label("Delete");
     GtkWidget *button_search = gtk_button_new_with_label("Search Value");
     GtkWidget *button_modify = gtk_button_new_with_label("Modify");
-    GtkWidget *button_clear_all = gtk_button_new_with_label("Effacer tout");
+    GtkWidget *button_clear_all = gtk_button_new_with_label("Clear");
 
     // Connexions des signaux pour les boutons
     g_signal_connect(button_show, "clicked", G_CALLBACK(on_button_clicked), entry_elements);
