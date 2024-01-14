@@ -15,6 +15,14 @@ typedef struct {
     Node *tail;
 } LinkedList;
 
+typedef struct {
+    gboolean is_animating;
+    double target_x;
+    double target_y;
+    double current_x;
+    double current_y;
+    guint animation_timer;
+} AnimationInfo;
 // Function prototypes
 void add_element(LinkedList *list, int value);
 void draw_arrow(cairo_t *cr, double x1, double y1, double x2, double y2);
@@ -502,12 +510,12 @@ int main(int argc, char *argv[]) {
     GtkWidget *label_elements = gtk_label_new("Enter elements separated by space:");
     GtkWidget *entry_elements = gtk_entry_new();
 
-    GtkWidget *button_show = gtk_button_new_with_label("Show List");
-    GtkWidget *button_insert = gtk_button_new_with_label("Insert Element");
-    GtkWidget *button_delete = gtk_button_new_with_label("Delete");
-    GtkWidget *button_search = gtk_button_new_with_label("Search Value");
-    GtkWidget *button_modify = gtk_button_new_with_label("Modify");
-    GtkWidget *button_clear_all = gtk_button_new_with_label("Clear");
+    GtkWidget *button_show = gtk_button_new_with_label("Afficher la liste");
+    GtkWidget *button_insert = gtk_button_new_with_label("Insérer un élément");
+    GtkWidget *button_delete = gtk_button_new_with_label("Supprimer un élément");
+    GtkWidget *button_search = gtk_button_new_with_label("chercher un élément");
+    GtkWidget *button_modify = gtk_button_new_with_label("Modifier un élément");
+    GtkWidget *button_clear_all = gtk_button_new_with_label("Effacer tout");
 
     // Connexions des signaux pour les boutons
     g_signal_connect(button_show, "clicked", G_CALLBACK(on_button_clicked), entry_elements);
